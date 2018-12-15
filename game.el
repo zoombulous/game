@@ -510,27 +510,26 @@
               (format ("You have locked the %s." thing-name)))))))
 
 (defun jg-bounce-command (words)
+  (loop while (member (car words) '("the" "a" "that"))
+        do (setq words (cdr words)))
   (let* ((player-id current-player-id)
          (thing-id (name-to-id :things words))
          (thing-name (get-attribute :things thing-id :name))
-         (player-location (getf player :room))
          (result (bounce player-id thing-id)))
     (cond ((equal result :no-ball)
            (jb-game-output (format "You can't bounce what you don't have")))
+          ((equal result :not-bounceable)
+           (jb-game-output (format "The %s is not a bounceable thing" thing-name)))
           (t (jb-game-output
-              (format ("You bounce the %s off the floor.  That was fun." thing-name)))))))
-
+              (format "You bounce the %s off the floor.  That was fun." thing-name))))))
 
 (defun bounce (player-id thing-id)
-  (let* ((player-id current-player-id)
-         (pocket (get-attribute :players player-id :pocket))
-         (bounce (get-attribute :things thing-id :bounce-able)))
+  (let* ((pocket (get-attribute :players player-id :pocket))
+         (bounceable (get-attribute :things thing-id :bounceable))
+         (thing-name (get-attribute :things thing-id :name)))
     (if (member thing-id pocket)
-        (if usable
-            (jb-game-output
-             (format "Using %s." (get-attribute :things thing-id :name)))
-(jb-game-output "Thing %s is not usable." thing-name))
-(jb-game-output "The %s is not in this room to use." thing-name))))
+        (if bounceable :success :not-bounceable)
+      :no-ball)))
 
 (defun lock (player-id thing-id)
   (let* ((pocket (get-attribute :players player-id :pocket))
@@ -707,7 +706,7 @@
                         :description "This ball is round and sqeaky."
                         :retrievable t
                         :usable t
-                        :bounce-able t
+                        :bounceable t
                         :use-type
                         (list "interact" t
                               "bounce" t)
