@@ -178,7 +178,7 @@
 
 (defun jg-describe-conversation (words)
   (let* ((player-id current-player-id)
-         (conversation-id (get-attribute :platers player-id :conversation)))
+         (conversation-id (get-attribute :players player-id :conversation)))
     (jg-describe-conversation conversation-id)))
 
 (defun jg-describe-room (room-id)
@@ -213,10 +213,6 @@
           (return
            (jb-game-output description "\n"
 (mapconcat 'identity directions "\n"))))))
-
-
-
-;need to add in monster's name into conversation list as attribute.  Can remove (items in room) section.  Add in (x) said
 
 (defun jg-describe-conversation (conversation-id)
   (let* ((player-id current-player-id)
@@ -479,16 +475,40 @@
       :invalid-conversation-direction)))
 
 (defun jg-conversation-command (words)
+  (when words
+    (let* ((player-id current-player-id)
+           (conversation-id
+            (get-attribute :players player-id :conversation-id))
+           (responses
+            (get-attribute :conversations conversation-id :result))
+           (selected-response
+            (car (remove-if-not (lambda (x)
+                                  (equal (format "%s" (getf x :answer))
+                                         (car words)))
+                                responses)))
+           (destination
+            (select-by-id :conversations (getf selected-response
+                                               :destination-id))))
+      (when destination
+        (set-attribute :players player-id :conversation-id
+                       (getf destination :id)))))
+  (let* ((valid-conversation-responses (getf game-structure :valid-conversation-responses))
+         (player-id current-player-id)
+         (conversation-id (get-attribute :players player-id :conversation-id))
   ;; If words is nil, then this does the right thing.  If words is not
   ;; nill, the player has already seen the question and is providing
   ;; an answer.  We need identify the next question based on that
   ;; answer, set conversation-id (in the players list) to the next
   ;; question, then do everything that follows here.
-  (let* ((player-id current-player-id)
-         (conversation-id (get-attribute :players player-id :conversation-id))
-         (direction (when words (intern-soft (format ":%s" (car words))))))
-    (conversation player-id direction)))
-
+         (response (when words (intern-soft (format ":%s" (car words))))))
+    (conversation player-id conversation-id)))
+    ;; (if (member response valid-conversation-responses)
+    ;;     (let ((new-conversation-id (move player-id conversation-id)))
+    ;;       (if (equal new-conversation-id :invalid-conversation-responses)
+    ;;           (jb-game-output "'%s' isn't a valid response.  Please respond a, b, c, or d." (car words))
+    ;;         (jg-describe-conversation new-conversation-id)))
+    ;;   (jb-game-output (format "'%s' isn't a valid response.  Please respond a, b, c, or d." (car words))))))
+  
 (defun conversation (player-id direction)
   (let* ((current-conversation-id
           (get-attribute :players player-id :conversation-id))
@@ -776,29 +796,28 @@
                 :context "The monster wants to know your name.  If you provide the name, the monster will haunt your dreams forever.  If you don't provide your name, the monster will forget about you."
                 :question "What is your name?"
                 :result (list (list :answer :a :text "My name is Hero"
-                                    :destination :gave-name-to-monster)
+                                    :destination :gave-name-to-monster
+                                    :destination-id 2)
                               (list :answer :b
                                     :text "I don't want to give you my name"
-                                    :destination :dont-give-name-to-monster)))
+                                    :destination :dont-give-name-to-monster
+                                    :destination-id 3)))
           
           (list :name :give-name-to-monster
-                :subject :monster
                 :id 2
-                :mpc-id 1
-                :directions
-                nil
+                :subject-id 1
                 :context "You've given your name to the monster and the monster will haunt your dreams forever.  The monster wants to know if that's your real name. If it's not, the monster will forget all about you."
                 :question "Because you gave me your name, I will haunt your dreams forever"
-                :result (list :end-conversation))
+                :result (list (list :answer nil :text nil
+                                    :destination :end-conversation)))
           
           (list :name :dont-give-name-to-monster
-                :subject :monster
                 :id 3
-                :directions
-                nil
+                :subject-id 1
                 :context "You've withheld your name from the monster and the monster wants to insist on you providing that name."
                 :question "Because you have withheld your name, I will slime you."
-                :result (list :end-conversation)))
+                :result (list (list :answer nil :text nil
+                                    :destination :end-conversation))))
 
          :players (list
                    (list :id 1 :room 0 :pocket nil :conversation-id 1))
@@ -1124,7 +1143,7 @@
                         :contains-item nil
                         :conversable nil))
 
-         :valid-conversation-directions
+         :valid-conversation-responses
          (list :a :b :c :d)
          
          :valid-directions
@@ -1157,3 +1176,6 @@
 ;lazy zombie not being recognized as a creature
 ;problems with zombie janitor, being confused with lazy zombie
 ;problems with ticket machine/ticket 7a, related to same word in name problem that is an issue with the zombies
+
+(defun string-join (separator sequence)
+  (mapconcat 'identity sequence separator))
