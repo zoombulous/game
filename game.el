@@ -99,10 +99,10 @@
     (("reset" "restart" "reboot") jg-reset-command)
     (("please" "kindly") jg-please-command)
     (("use") jg-use-command)
-    (("unlock") jg-unlock-command)
-    (("lock") jg-lock-command)
+    (("unlock" "open") jg-unlock-command)
+    (("lock" "close") jg-lock-command)
     (("bounce" "throw") jg-bounce-command)
-    ((("use" "clock") ("change" "time") ("move" "hand") ("move" "clockhand")) jg-time-change-command)
+    ((("time-change") ("use" "clock") ("change" "time") ("move" "hand") ("move" "clockhand")) jg-time-change-command)
     ((("good" "bye") "bye" "good-bye") jg-goodbye-command)))
 
 (defun match-words (match-list words)
@@ -189,12 +189,16 @@
          (things-in-room (remove-if-not
                           (lambda (x)
                             (and (null (getf x :owner))
+                                 (null (getf x :invisable nil))
                                  (not (member x pocket))
                                  (= (getf x :room) room-id)))
                           (getf game-structure :things)))
+         ;;descrptions
+         ;;description-id
          (description (format "You are now in the %s.\n%s"
                               (get-attribute :rooms room-id :name)
                               (get-attribute :rooms room-id :description))))
+    ;;elt descriptions description-index
     (when things-in-room
       (setf description
             (concat 
@@ -231,33 +235,8 @@
            (jb-game-output description "\n"
 (mapconcat 'identity directions "\n"))))))
 
-
-
-
-
-
-
-
-
-
-
-
-                                        ;attempt to make portal locked condition for moving
-
-;(defun jg-move-command (words)
-;  (let* ((valid-directions (getf game-structure :valid-directions))
-;        (direction (intern-soft (format ":%s" (car words))))
-;        (player-id current-player-id))
-;    (if (member direction valid-directions)
-;        (let ((new-room-id (move player-id direction)))
-;          (cond ((equal result :portal-locked)
-;                 (jb-game-output
-;                  (format "This portal is locked")))
-;                ((equal new-room-id :invalid-direction)
-;                 (jb-game-output
-;                  (format "There's nothing in that direction.")))
-;                (jg-describe-room new-room-id)))
-;      (jb-game-output (format "Unkown direction '%s'!" (car words))))))
+;;(defun jg-help-command (words)
+;;  (let* ((player-id current-player-id)
 
 (defun jg-move-command (words)
   (let ((valid-directions (getf game-structure :valid-directions))
@@ -269,6 +248,28 @@
               (jb-game-output "There's nothing in that direction.")
             (jg-describe-room new-room-id)))
       (jb-game-output (format "Unkown direction '%s'!" (car words))))))
+
+
+
+;;attempt to make portal locked condition for moving
+
+;;(defun jg-move-command (words)
+;;  (let ((valid-directions (getf game-structure :valid-directions))
+;;        (direction (intern-soft (format ":%s" (car words))))
+;;        (player-id current-player-id)
+;;        (current-room-id (get-attribute :players player-id :room))
+;;        (room-locked (get-attribute :rooms current-room-id :portal-locked))
+;;)
+;;    (if (member direction valid-directions)
+;;        (let ((new-room-id (move player-id direction)))
+;;          (cond ((equal new-room-id room-locked)
+;;                 (jb-game-output
+;;                  (format "The portal leading that direction is locked")))
+;;                ((equal new-room-id :invalid-direction)
+;;                 (jb-game-output
+;;                  (format "There's nothing in that direction.")))
+;;                (t (jg-describe-room new-room-id)))
+;;          (jb-game-output (format "Unkown direction '%s'!" (car words)))))))
 
 
 (defun jg-pickup-command (words)
@@ -291,6 +292,8 @@
             (format "The %s is already in someone else's possession.")))
           ((equal result :thing-not-in-room)
            (jb-game-output (format "There's no %s in this room.")))
+          ((equal result :invisable)
+           (jb-game-output (format "There's no %s in this room.")))
           ((equal result :unknown-thing)
            (jb-game-output
             (format "The thing you want, %s, doesn't exist in this world."
@@ -303,7 +306,9 @@
          (thing-id (name-to-id :things words))
          (thing-name (get-attribute :things thing-id :name))
          (result (lock player-id thing-id)))
-    (cond ((equal result :no-key)
+    (cond ((equal result :thing-not-in-room)
+           (jb-game-output (format "There is no %s in this room" thing-name)))
+          ((equal result :no-key)
            (jb-game-output (format "You need a key.")))
           ((equal result :thing-not-lockable)
            (jb-game-output
@@ -315,7 +320,9 @@
           ((equal result :already-locked)
            (jb-game-output
             (format "The %s is already locked." thing-name)))
-          (t (jb-game-output
+          (t
+           (set-attribute :things 32 :invisable t)
+           (jb-game-output
               (format "You have locked the %s." thing-name))))))
 
 (defun jg-unlock-command (words)
@@ -323,31 +330,44 @@
          (thing-id (name-to-id :things words))
          (thing-name (get-attribute :things thing-id :name))
          (result (lock player-id thing-id t)))
-    (cond ((equal result :no-key)
+    (cond ((equal result :thing-not-in-room)
+           (jb-game-output (format "There is no %s in this room" thing-name)))
+          ((equal result :no-key)
            (jb-game-output (format "You need a key.")))
           ((equal result :thing-not-lockable)
            (jb-game-output
-            (format "Thing %s is not lockable." thing-name)))
+            (format "The %s is not lockable." thing-name)))
           ((equal result :already-locked)
            (jb-game-output
             (format "The %s is already locked." thing-name)))
           ((equal result :thing-already-unlocked)
            (jb-game-output
             (format "The %s is already unlocked." thing-name)))
-          (t (jb-game-output
+          (t
+           (set-attribute :things 32 :invisable nil)
+           (jb-game-output
               (format "You have unlocked the %s." thing-name))))))
 
 (defun lock (player-id thing-id &optional unlock)
   (let* ((pocket (get-attribute :players player-id :pocket))
          (locked (get-attribute :things thing-id :locked))
+         (invisable (get-attribute :things thing-id :invisable))
          (key-id 20))
     (if unlock
         (cond ((null locked) :thing-not-lockable)
+              ((not (member key-id pocket))
+             :no-key)
+              ((not (equal (get-attribute :players player-id :room)
+                           (get-attribute :things thing-id :room)))
+               :thing-not-in-room)
               ((equal locked 1) :thing-already-unlocked)
               (t (set-attribute :things thing-id :locked 1)))
       (cond ((null locked) :thing-not-lockable)
             ((not (member key-id pocket))
              :no-key)
+            ((not (equal (get-attribute :players player-id :room)
+                     (get-attribute :things thing-id :room)))
+         :thing-not-in-room)
             ((equal locked 2) :already-locked)
             (t (set-attribute :things thing-id :locked 2))))))
 
@@ -362,9 +382,9 @@
             (format "The %s is not yours to drop." thing-name)))
           ((equal result :unknown-thing)
            (jb-game-output 
-            (format "The %s doesn't exist." thing-name)))
+            ((set-attribute :things format "The %s doesn't exist." thing-name)))
           (t (jb-game-output
-              (format "You no longer have possession of the %s." thing-name))))))
+              (format "You no longer have possession of the %s." thing-name)))))))
 
 (cl-defun list-keys (l &key sorted (sort-predicate #'string<))
   (loop for a from 0 below (length l) by 2
@@ -444,35 +464,38 @@
           (set-attribute :players player-id :pocket pocket)
           (set-attribute :things thing-id :owner nil))))))
 
-                                        ;attempt to make room portal locked condition
-;(defun move (player-id direction)
-;  (let* ((current-room-id (get-attribute :players player-id :room))
-;         (locked (get-attribute :room room-id :portal-locked))
-;         (pocket (get-attribute :players player-id :pocket))
-;         (valid-directions (get-attribute :rooms current-room-id
-;                                           :directions)))
-;    (if (member direction (list-keys valid-directions))
-;        (let ((new-room (getf valid-directions direction)))
-;          (set-attribute :players player-id :room new-room)
-;          (loop for thing-id in pocket
-;                do (set-attribute :things thing-id :room new-room))
-;          new-room)
-;      :invalid-direction)))
-
+;;attempt to make room portal locked condition
 
 
 (defun move (player-id direction)
   (let* ((current-room-id (get-attribute :players player-id :room))
          (pocket (get-attribute :players player-id :pocket))
          (valid-directions (get-attribute :rooms current-room-id
-                                           :directions)))
+                                          :directions))
+         (room-locked (get-attribute :rooms current-room-id :portal-locked))
+         )
     (if (member direction (list-keys valid-directions))
         (let ((new-room (getf valid-directions direction)))
           (set-attribute :players player-id :room new-room)
           (loop for thing-id in pocket
                 do (set-attribute :things thing-id :room new-room))
           new-room)
-      :invalid-conversation-direction)))
+      :invalid-direction))) 
+
+ 
+
+;;(defun move (player-id direction)
+;;  (let* ((current-room-id (get-attribute :players player-id :room))
+;;         (pocket (get-attribute :players player-id :pocket))
+;;         (valid-directions (get-attribute :rooms current-room-id
+;;                                           :directions)))
+;;    (if (member direction (list-keys valid-directions))
+;;        (let ((new-room (getf valid-directions direction)))
+;;          (set-attribute :players player-id :room new-room)
+;;          (loop for thing-id in pocket
+;;                do (set-attribute :things thing-id :room new-room))
+;;          new-room)
+;;      :invalid-conversation-direction)))
 
 (defun jg-conversation-command (words)
   (when words
@@ -597,54 +620,29 @@
           (jb-game-output "Thing %s is not usable." thing-name))
       (jb-game-output "The %s is not in this room to use." thing-name))))
 
-;(defun jg-lock-command (words)
-;  (let* ((player-id current-player-id)
-;         (thing-id (name-to-id :things words))
-;         (thing-name (get-attribute :things thing-id :name))
-;         (result (lock player-id thing-id)))
-;    (cond  ((equal result :thing-not-lockable)
-;           (jb-game-output
-;            (format "Thing %s is not lockable." thing-name)))
-;          ((equal result :no-key)
-;           (jb-game-output
-;            (format "You must have a key to unlock the %s."
-;                    thing-name)))
-;          ((equal result :already-locked)
-;           (jb-game-output
-;            (format "The %s is already locked." thing-name)))
-;          (t (jb-game-output
-;              (format ("You have locked the %s." thing-name)))))))
+;;(defun jg-bounce-command (words)
+;;  (loop while (member (car words) '("the" "a" "that"))
+;;        do (setq words (cdr words)))
+;;  (let* ((player-id current-player-id)
+;;         (thing-id (name-to-id :things words))
+;;         (thing-name (get-attribute :things thing-id :name))
+;;         (result (bounce player-id thing-id)))
+;;    (cond ((equal result :no-ball)
+;;           (jb-game-output (format "You can't bounce what you don't have")))
+;;          ((equal result :not-bounceable)
+;;           (jb-game-output (format "The %s is not a bounceable thing" thing-name)))
+;;          (t (jb-game-output
+;;              (format "You bounce the %s off the floor.  That was fun." thing-name))))))
 
-(defun jg-bounce-command (words)
-  (loop while (member (car words) '("the" "a" "that"))
-        do (setq words (cdr words)))
-  (let* ((player-id current-player-id)
-         (thing-id (name-to-id :things words))
-         (thing-name (get-attribute :things thing-id :name))
-         (result (bounce player-id thing-id)))
-    (cond ((equal result :no-ball)
-           (jb-game-output (format "You can't bounce what you don't have")))
-          ((equal result :not-bounceable)
-           (jb-game-output (format "The %s is not a bounceable thing" thing-name)))
-          (t (jb-game-output
-              (format "You bounce the %s off the floor.  That was fun." thing-name))))))
+;;(defun bounce (player-id thing-id)
+;;  (let* ((pocket (get-attribute :players player-id :pocket))
+;;         (bounceable (get-attribute :things thing-id :bounceable))
+;;         (thing-name (get-attribute :things thing-id :name)))
+;;    (if (member thing-id pocket)
+;;        (if bounceable :success :not-bounceable)
+;;      :no-ball)))
 
-(defun bounce (player-id thing-id)
-  (let* ((pocket (get-attribute :players player-id :pocket))
-         (bounceable (get-attribute :things thing-id :bounceable))
-         (thing-name (get-attribute :things thing-id :name)))
-    (if (member thing-id pocket)
-        (if bounceable :success :not-bounceable)
-      :no-ball)))
 
-;(defun lock (player-id thing-id)
-;  (let* ((pocket (get-attribute :players player-id :pocket))
-;         (locked (get-attribute :things thing-id :lockable)))
-;    (cond ((null locked) :thing-not-lockable)
-;          ((not (member key-id pocket))
-;           :no-key)
-;          ((equal locked 2) :already-locked)
-;          (t (set-attribute :things thing-id :locked 2)))))
 
 (defun jab (player-id thing-id)
   (let* ((pocket (get-attribute :players player-id :pocket))
@@ -664,32 +662,53 @@
           (t (jb-game-output
               (format ("I know this %s isn't sharp, but you shouldn't swing it around willy nilly." thing-name)))))))
 
-(defun time-change (player-id thing-id)
-  (let* ((pocket (get-attribute :players player-id :pocket))
-         (clock (get-attribute :things thing-id :time-change)))
-    (cond ((null time-change) :not-a-clock)
-          ((equal clock 1) :on-break)
-          ((equal clock 2) :break-over)
-          (t (set-attribute :things thing-id :time-change 2)))))
-
 (defun jg-time-change-command (words)
   (let* ((player-id current-player-id)
          (thing-id (name-to-id :things words))
          (thing-name (get-attribute :things thing-id :name))
-         (result (clock player-id thing-id)))
+         (result (time-change player-id thing-id)))
     (cond ((equal result :not-a-clock)
-           (jb-game-output (format "You can't change the time on that.")))
-          ((equal result :not-a-clock)
            (jb-game-output
-            (format "Thing %s is not lockable." thing-name)))
-          ((equal result :thing-not-in-room)
-           (jb-game-output
-            (format "There is no %s in this room" thing-name)))
+            (format "You can't change the time on a %s!" thing-name)))
           ((equal result :break-over)
            (jb-game-output
-            (format "You already fiddled with it.  You should leave the %s alone before you break it." thing-name)))
+            (format "You already changed the time on the %s." thing-name)))
+          ((equal result :not-in-room)
+           (jb-game-output
+            (format "There is no %s in this room." thing-name)))
           (t (jb-game-output
-              (format ("You move the hour hand forward.")))))))
+              (format "You move the hour hand forward on the otherwise unchanging clock." thing-name))))))
+
+(defun time-change (player-id thing-id)
+  (let* ((pocket (get-attribute :players player-id :location))
+         (time-change (get-attribute :things thing-id :time-change)))
+    (cond ((null time-change) :not-a-clock)
+          ((not (equal (get-attribute :players player-id :room)
+                       (get-attribute :things thing-id :room)))
+           :thing-not-in-room)
+          ((equal time-change 2) :break-over)
+          (t (set-attribute :things thing-id :time-change 2)))))
+
+
+
+;; (defun jg-time-change-command (words)
+;;   (let* ((player-id current-player-id)
+;;          (thing-id (name-to-id :things words))
+;;          (thing-name (get-attribute :things thing-id :name))
+;;          (result (change player-id thing-id)))
+;;     (cond ((equal result :not-a-clock)
+;;            (jb-game-output (format "You can't change the time on that.")))
+;;           ((equal result :not-a-clock)
+;;            (jb-game-output
+;;             (format "Thing %s is not lockable." thing-name)))
+;;           ((equal result :thing-not-in-room)
+;;            (jb-game-output
+;;             (format "There is no %s in this room" thing-name)))
+;;           ((equal result :break-over)
+;;            (jb-game-output
+;;             (format "You already fiddled with it.  You should leave the %s alone before you break it." thing-name)))
+;;           (t (jb-game-output
+;;               (format ("You move the hour hand forward.")))))))
 
 (defun replace-batteries (player-id thing-id)
   (let* ((pocket (get-attribute :players player-id :pocket))
@@ -826,6 +845,7 @@
                   (list :name "mirror"
                         :id 1
                         :owner nil
+                        :invisable t
                         :room 0
                         :description "There is a myserious figure inside."
                         :retrievable t
@@ -895,6 +915,7 @@
                         :combined nil
                         :inside-item (list :id 4 :name "lazy zombie")
                         :contains-item nil
+                        :invisable t
                         :conversable nil)
                   (list :name "busy zombie"
                         :id 6
@@ -930,7 +951,7 @@
                         :combinable nil
                         :combined nil
                         :inside-item nil
-                        :time-change 1
+                        :time-change 2
                         :usable t
                         :use-type
                         (list "move" t
@@ -956,8 +977,8 @@
                         (list "open" t :active :20
                               "unlock" t :active :20
                               "search" t)
-                        :locked 1
-                        :contains-item (list :id 10 :name "portal traveling permit papers")
+                        :locked 2
+                        :contains-item (list :id  :name "portal traveling permit papers")
                         :conversable nil)
                   (list :name "small grey key"
                         :id 20
@@ -1059,6 +1080,7 @@
                         :combinable nil
                         :inside-item (list :id 15 :name "gnome")
                         :contains-item nil
+                        :invisable
                         :conversable nil)
                   (list :name "lizard man"
                         :id 17
@@ -1141,8 +1163,28 @@
                               "put" t :active :12) 
                         :inside-item nil
                         :contains-item nil
+                        :conversable nil)
+                  (list :name "papers"
+                        :id 32
+                        :room 2
+                        :dead t
+                        :description "With these, you can apply for a portal traveling permit"
+                        :retrievable t
+                        :invisable t
+                        :interactible nil
+                       ; :combinable (list 12)
+                       ; :usable t
+                       ; :use-type t
+                       ; (list "insert" t :active :12
+                       ;       "replace" t :active :12
+                       ;       "put" t :active :12) 
+                       ; :inside-item t
+                      
+                        :contains-item t
                         :conversable nil))
 
+         
+         
          :valid-conversation-responses
          (list :a :b :c :d)
          
