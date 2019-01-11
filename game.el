@@ -181,31 +181,36 @@
          (conversation-id (get-attribute :players player-id :conversation)))
     (jg-describe-conversation conversation-id)))
 
+(defun things-in-room (pocket room-id)
+  (remove-if-not
+   (lambda (x)
+     (and (null (getf x :owner))
+          (null (getf x :invisable nil))
+          (not (member x pocket))
+          (= (getf x :room) room-id)))
+   (getf game-structure :things)))
+
+(defun add-things-in-room (description things-in-room)
+  (concat 
+   description 
+   (format "\nThe following things are in the room: %s."
+           (mapconcat (lambda (x) (getf x :name))
+                      things-in-room ", "))))
+
 (defun jg-describe-room (room-id)
   (let* ((player-id current-player-id)
          (player (select-by-id :players player-id))
          (pocket (getf player :pocket))
          (directions (list-keys (get-attribute :rooms room-id :directions)))
-         (things-in-room (remove-if-not
-                          (lambda (x)
-                            (and (null (getf x :owner))
-                                 (null (getf x :invisable nil))
-                                 (not (member x pocket))
-                                 (= (getf x :room) room-id)))
-                          (getf game-structure :things)))
-         ;;descrptions
-         ;;description-id
+         (things-in-room (things-in-room pocket room-id))
+         (description-index (get-attribute :rooms room-id :description-index))
+         (descriptions (get-attribute :rooms room-id :descriptions))
+         (room-name (get-attribute :rooms room-id :name))
+         (description-text (elt descriptions description-index))
          (description (format "You are now in the %s.\n%s"
-                              (get-attribute :rooms room-id :name)
-                              (get-attribute :rooms room-id :description))))
-    ;;elt descriptions description-index
+                              room-name description-text)))
     (when things-in-room
-      (setf description
-            (concat 
-             description 
-             (format "\nThe following things are in the room: %s."
-                     (mapconcat (lambda (x) (getf x :name))
-                                things-in-room ", ")))))
+      (setf description (add-things-in-room description things-in-room)))
     (loop for direction in directions
           collect (format "There's a room %s %s."
                           (if (member direction '(:up :down))
@@ -244,12 +249,13 @@
         (player-id current-player-id))
     (if (member direction valid-directions)
         (let ((new-room-id (move player-id direction)))
-          (if (equal new-room-id :invalid-direction)
-              (jb-game-output "There's nothing in that direction.")
-            (jg-describe-room new-room-id)))
-      (jb-game-output (format "Unkown direction '%s'!" (car words))))))
-
-
+          (cond ((equal new-room-id :invalid-direction)
+                 (jb-game-output "There's nothing in that direction."))
+                ((equal new-room-id :room-is-locked)
+                 (jb-game-output "That room is locked."))
+                (t (jg-describe-room new-room-id))))
+      (jb-game-output (format "Unkown direction '%s'!"
+                              (car words))))))
 
 ;;attempt to make portal locked condition for moving
 
@@ -468,34 +474,21 @@
 
 
 (defun move (player-id direction)
-  (let* ((current-room-id (get-attribute :players player-id :room))
+  "Move a player and his or her belongings from one room to another."
+  (let* ((room-id (get-attribute :players player-id :room))
          (pocket (get-attribute :players player-id :pocket))
-         (valid-directions (get-attribute :rooms current-room-id
+         (valid-directions (get-attribute :rooms room-id
                                           :directions))
-         (room-locked (get-attribute :rooms current-room-id :portal-locked))
-         )
-    (if (member direction (list-keys valid-directions))
-        (let ((new-room (getf valid-directions direction)))
-          (set-attribute :players player-id :room new-room)
-          (loop for thing-id in pocket
-                do (set-attribute :things thing-id :room new-room))
-          new-room)
-      :invalid-direction))) 
-
- 
-
-;;(defun move (player-id direction)
-;;  (let* ((current-room-id (get-attribute :players player-id :room))
-;;         (pocket (get-attribute :players player-id :pocket))
-;;         (valid-directions (get-attribute :rooms current-room-id
-;;                                           :directions)))
-;;    (if (member direction (list-keys valid-directions))
-;;        (let ((new-room (getf valid-directions direction)))
-;;          (set-attribute :players player-id :room new-room)
-;;          (loop for thing-id in pocket
-;;                do (set-attribute :things thing-id :room new-room))
-;;          new-room)
-;;      :invalid-conversation-direction)))
+         (new-room-id (getf valid-directions direction))
+         (new-room-locked (get-attribute :rooms new-room-id :locked)))
+    (cond (new-room-locked :room-is-locked)
+          ((not (member direction (list-keys valid-directions)))
+           :invalid-direction)
+          (t (progn
+               (set-attribute :players player-id :room new-room-id)
+               (loop for thing-id in pocket
+                     do (set-attribute :things thing-id :room new-room-id))
+               new-room-id)))))
 
 (defun jg-conversation-command (words)
   (when words
@@ -762,8 +755,12 @@
                         :south 3
                         :west 4
                         :down 999)
-                       :description
-                       "You stand in a room that aches with boredom.  You would rather gnaw off your leg than stand another moment in this place.  It must be a government building."
+                       :descriptions
+                       (list
+                        "You stand in a room that aches with boredom.  You would rather gnaw off your leg than stand another moment in this place.  It must be a government building."
+                        "No description")
+                       :description-index 0
+                       :locked nil
                        :room-puzzle nil)
                  
                  (list :name "Home"
@@ -771,40 +768,61 @@
                        :portal-locked t
                        :directions
                        ()
-                       :description
-                       "You made it home!  You win the game"
+                       :descriptions
+                       (list
+                        "You made it home!  You win the game"
+                        "No description.")
+                       :description-index 0
+                       :locked nil
                        :room-puzzle nil)
                  
                  (list :name "Service"
                        :id 1
                        :directions
                        (list :south 0)
-                       :description
-                       (list "Grouchy zombies shuffle around behind service desks.  Presumably, their job is to help people get paper work squared away as their number is called over the loud speaker, but no numbers are being called."
-                       "Grouchy zombies shuffle around behind a service desk.  As peoples numbers are called, they walk up to the zombies for assistance with their paper work.")
+                       :descriptions
+                       (list
+                        "Grouchy zombies shuffle around behind service desks.  Presumably, their job is to help people get paper work squared away as their number is called over the loud speaker, but no numbers are being called."
+                        "Grouchy zombies shuffle around behind a service desk.  As peoples numbers are called, they walk up to the zombies for assistance with their paper work.")
+                       :description-index 0
+                       :locked nil
                        :room-puzzle nil)
                  
                  (list :name "File Room"
                        :id 2
                        :directions
                        (list :west 0)
-                       :description "This room has a large, important looking filing cabinet.  The walls are a blinding yellow color that hurt your eyes if you look too long."
-                       :room-puzzle nil)
+                       :descriptions
+                       (list
+                        "This room has a large, important looking filing cabinet.  The walls are a blinding yellow color that hurt your eyes if you look too long."
+                        "No description.")
+                       :description-index 0
+                       :locked nil
+                       (list
+                        :room-puzzle nil))
                  
                  (list :name "Storage Room"
                        :id 3
                        :directions
                        (list :north 0)
-                       :description
-                       "A janitor is sleeping on a cot in the corner.  Various cleaning items are scattered around the room."
+                       :descriptions
+                       (list 
+                        "A janitor is sleeping on a cot in the corner.  Various cleaning items are scattered around the room."
+                        "No description.")
+                       :description-index 0
+                       :locked nil
                        :room-puzzle nil)
                  
                  (list :name "Waiting Room"
                        :id 4
                               :directions
                        (list :east 0)
-                       :description
-                       "Creatures are sitting on chairs as they wait for their number to be called so that they can get different sorts of paper work squared away.  The gray carpet beneath your feet is sticky.  Why is it sticky?"
+                       :descriptions
+                       (list 
+                        "Creatures are sitting on chairs as they wait for their number to be called so that they can get different sorts of paper work squared away.  The gray carpet beneath your feet is sticky.  Why is it sticky?"
+                        "No description")
+                       :description-index 0
+                       :locked nil
                        :room-puzzle nil))
                  
          :conversations
