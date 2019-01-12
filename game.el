@@ -102,7 +102,7 @@
     (("unlock" "open") jg-unlock-command)
     (("lock" "close") jg-lock-command)
     (("bounce" "throw") jg-bounce-command)
-    ((("give" "the" "papers" "to" "the") ("give" "papers" "to")) jg-give-command)
+    (("give" "hand over") jg-give-command)
     ((("time-change") ("use" "clock") ("change" "time") ("move" "hand") ("move" "clockhand")) jg-time-change-command)
     ((("good" "bye") "bye" "good-bye") jg-goodbye-command)))
 
@@ -186,7 +186,7 @@
   (remove-if-not
    (lambda (x)
      (and (null (getf x :owner))
-          (null (getf x :invisable nil))
+          (null (getf x :invisible nil))
           (not (member x pocket))
           (= (getf x :room) room-id)))
    (getf game-structure :things)))
@@ -299,7 +299,7 @@
             (format "The %s is already in someone else's possession.")))
           ((equal result :thing-not-in-room)
            (jb-game-output (format "There's no %s in this room.")))
-          ((equal result :invisable)
+          ((equal result :invisible)
            (jb-game-output (format "There's no %s in this room.")))
           ((equal result :unknown-thing)
            (jb-game-output
@@ -328,7 +328,7 @@
            (jb-game-output
             (format "The %s is already locked." thing-name)))
           (t
-           (set-attribute :things 32 :invisable t)
+           (set-attribute :things 32 :invisible t)
            (jb-game-output
               (format "You have locked the %s." thing-name))))))
 
@@ -351,14 +351,14 @@
            (jb-game-output
             (format "The %s is already unlocked." thing-name)))
           (t
-           (set-attribute :things 32 :invisable nil)
+           (set-attribute :things 32 :invisible nil)
            (jb-game-output
             (format "You have unlocked the %s." thing-name))))))
 
 (defun lock (player-id thing-id &optional unlock)
   (let* ((pocket (get-attribute :players player-id :pocket))
          (locked (get-attribute :things thing-id :locked))
-         (invisable (get-attribute :things thing-id :invisable))
+         (invisable (get-attribute :things thing-id :invisible))
          (key-id 20))
     (if unlock
         (cond ((null locked) :thing-not-lockable)
@@ -512,19 +512,8 @@
   (let* ((valid-conversation-responses (getf game-structure :valid-conversation-responses))
          (player-id current-player-id)
          (conversation-id (get-attribute :players player-id :conversation-id))
-  ;; If words is nil, then this does the right thing.  If words is not
-  ;; nill, the player has already seen the question and is providing
-  ;; an answer.  We need identify the next question based on that
-  ;; answer, set conversation-id (in the players list) to the next
-  ;; question, then do everything that follows here.
          (response (when words (intern-soft (format ":%s" (car words))))))
     (conversation player-id conversation-id)))
-    ;; (if (member response valid-conversation-responses)
-    ;;     (let ((new-conversation-id (move player-id conversation-id)))
-    ;;       (if (equal new-conversation-id :invalid-conversation-responses)
-    ;;           (jb-game-output "'%s' isn't a valid response.  Please respond a, b, c, or d." (car words))
-    ;;         (jg-describe-conversation new-conversation-id)))
-    ;;   (jb-game-output (format "'%s' isn't a valid response.  Please respond a, b, c, or d." (car words))))))
   
 (defun conversation (player-id direction)
   (let* ((current-conversation-id
@@ -540,18 +529,6 @@
                                         (getf possible-answer :text))))
          (output (format "%s\n%s" question (string-join "" answers))))
     (jb-game-output output)))
-
-; make a thing-in-others-pocket
-;(defun use (thing-id player-id)
-;  (if ((null thing-id)
-;      :unknown-thing (jb-game-output (format "The %s isn't in your pocket and you can't see it in this room." thing-name))
-;    (let (get-attribute :things thing-id :room room-id))
-;      (if (or (not (member))
-;              (not (equal thing-id (get-attribute :things thing-id :owner))))
-;          :thing-in-others-pocket (jb-game-output (format "The %s isn't in your pocket and you can't see it in this room" thing-name))
-;          (let
-;              (if (get-attribute :things thing-id :interactible equals t list-keys)
-;                  (jb-game-output (format "Nothing interesting happened"))))))))
 
 (defun jg-use-command (words)
   (logit "jg-use-command remaining words " words)
@@ -614,30 +591,6 @@
           (jb-game-output "Thing %s is not usable." thing-name))
       (jb-game-output "The %s is not in this room to use." thing-name))))
 
-;;(defun jg-bounce-command (words)
-;;  (loop while (member (car words) '("the" "a" "that"))
-;;        do (setq words (cdr words)))
-;;  (let* ((player-id current-player-id)
-;;         (thing-id (name-to-id :things words))
-;;         (thing-name (get-attribute :things thing-id :name))
-;;         (result (bounce player-id thing-id)))
-;;    (cond ((equal result :no-ball)
-;;           (jb-game-output (format "You can't bounce what you don't have")))
-;;          ((equal result :not-bounceable)
-;;           (jb-game-output (format "The %s is not a bounceable thing" thing-name)))
-;;          (t (jb-game-output
-;;              (format "You bounce the %s off the floor.  That was fun." thing-name))))))
-
-;;(defun bounce (player-id thing-id)
-;;  (let* ((pocket (get-attribute :players player-id :pocket))
-;;         (bounceable (get-attribute :things thing-id :bounceable))
-;;         (thing-name (get-attribute :things thing-id :name)))
-;;    (if (member thing-id pocket)
-;;        (if bounceable :success :not-bounceable)
-;;      :no-ball)))
-
-
-
 (defun jab (player-id thing-id)
   (let* ((pocket (get-attribute :players player-id :pocket))
          (jab (get-attribute :things thing-id :jab-able)))
@@ -671,7 +624,8 @@
            (jb-game-output
             (format "There is no %s in this room." thing-name)))
           (t (jb-game-output
-              (format "You move the hour hand forward on the otherwise unchanging clock." thing-name))))))
+              (format "You move the hour hand forward on the otherwise unchanging clock." 
+                      thing-name))))))
 
 (defun time-change (player-id thing-id)
   (let* ((pocket (get-attribute :players player-id :location))
@@ -685,64 +639,40 @@
 
 (defun jg-give-command (words)
   (let* ((player-id current-player-id)
-         (thing-id (name-to-id :things words))
-         (thing-name (get-attribute :things thing-id :name))
-         (result (give player-id thing-id t)
-                 (time-change player-id thing-id t))
+         (give-id (name-to-id :things words))
+         (give-name (get-attribute :things give-id :name))
+         (receive-id (name-to-id :things words))
+         (receive-name (get-attribute :things receive-id :name))
+         (result (give player-id give-id receive-id)))
     (cond ((equal result :thing-not-in-room)
            (jb-game-output (format "There is no %s in this room" thing-name)))
           ((equal result :no-papers)
            (jb-game-output (format "The lazy zombie sticks his nose up at you, for you do not have papers.  Without the proper paper work, the lazy zombie will not give you a portal traveling permit.  When you inquire about where to receive the proper paperwork, the lazy zombie says that there are some in the storage room, but he is far to busy to retrieve them right now.")))
-         
           ((equal result :cannot-receive)
            (jb-game-output
-            (format "The %s doesn't want that." thing-name))
-           (not ((equal result :break-over)
-                (jb-game-output
-                 (format "The lazy zombie is munching down on a brain sandwich.  With a mouth full of much, he bitterly grunts that he is on his break"))))
-          (t
-           (set-attribute :things 32 :invisable t)
-           (set-attribute :things 5 :invisable nil)
+            (format "The %s doesn't want that." thing-name)))
+          ((equal result :break-not-over)
            (jb-game-output
-            (format "You give the papers to the lazy zombie.  He mumbles to himself as as he scribbles down some information and types into his computer.  Then the lazy zombie sets a traveling permit down on the counter before you and wishes you a mediocre day."))))))))
+            (format "The lazy zombie is munching down on a brain sandwich.  With a mouth full of much, he bitterly grunts that he is on his break")))
+          (t
+           (set-attribute :things give-id :invisible t)
+           (set-attribute :things 5 :invisible nil)
+           (jb-game-output
+            (format "You give the papers to the lazy zombie.  He mumbles to himself as as he scribbles down some information and types into his computer.  Then the lazy zombie sets a traveling permit down on the counter before you and wishes you a mediocre day."))))))
 
-(defun give (player-id thing-id)
-  (let* ((pocket (get-attribute :players player-id :location))
-         (receive (get-attribute :things thing-id :receive))
-         (give (get-attribute :things thing-id :give))
-         (papers-id 32)
-         )
-    (cond 
-          ((null receive) :cannot-receive)
-          ((not (member papers-id pocket))
-           :no-papers)
-          ((not (equal (get-attribute :players player-id :room)
-                       (get-attribute :things thing-id :room)))
-           :thing-not-in-room)
-          ((equal reviece 2) :already-received)
-          (t (set-attribute :things thing-id :given 2)))))
-          
-          
-         
-
-;; (defun jg-time-change-command (words)
-;;   (let* ((player-id current-player-id)
-;;          (thing-id (name-to-id :things words))
-;;          (thing-name (get-attribute :things thing-id :name))
-;;          (result (change player-id thing-id)))
-;;     (cond ((equal result :not-a-clock)
-;;            (jb-game-output (format "You can't change the time on that.")))
-;;           ((equal result :not-a-clock)
-;;            (jb-game-output
-;;             (format "Thing %s is not lockable." thing-name)))
-;;           ((equal result :thing-not-in-room)
-;;            (jb-game-output
-;;             (format "There is no %s in this room" thing-name)))
-;;           ((equal result :break-over)
-;;            (jb-game-output
-;;             (format "You already fiddled with it.  You should leave the %s alone before you break it." thing-name)))
-;;           (t (jb-game-output
-;;               (format ("You move the hour hand forward.")))))))
+(defun give (player-id give-id receive-id)
+  (let* ((pocket (get-attribute :players player-id :pocket))
+         (thing-to-receive (select-by-id :things receive-id))
+         (thing-to-give (select-by-id :things give-id))
+         (can-receive (get-attribute :things receive-id :can-receive))
+         (receivable (member give-id can-receive)))
+    (cond
+     ((not recievable) :cannot-receive)
+     ((not (member give-id pocket)) :no-papers)
+     ((not (equal (get-attribute :players player-id :room)
+                  (get-attribute :things thing-to-receive :room)))
+      :thing-not-in-room)
+     (t t))))
 
 (defun replace-batteries (player-id thing-id)
   (let* ((pocket (get-attribute :players player-id :pocket))
@@ -755,7 +685,7 @@
           (t (set-attribute :things thing-id :batteries-replaceable 2)))))
 
 (defun refill (plater-id thing-id)
-  (let* ((pocket (get-attribute :platers plater-id :pocket))
+  (let* ((pocket (get-attribute :players player-id :pocket))
          (refill (get-attribute :things thing-id :refill-able))
          (water-id 30))
     (cond ((null refill) :refill-able)
@@ -781,7 +711,6 @@
             (format "The %s is already locked." thing-name)))
           (t (jb-game-output
               (format ("You have locked the %s." thing-name)))))))
-
 
 (defun game-structure ()
   (setq
@@ -903,7 +832,7 @@
                   (list :name "mirror"
                         :id 1
                         :owner nil
-                        :invisable t
+                        :invisible t
                         :room 0
                         :description "There is a myserious figure inside."
                         :retrievable t
@@ -963,7 +892,7 @@
                         :contains-item (list :id 5 :name "portal traveling permit")
                         :conversable t
                         :creature t
-                        :receive 1)
+                        :can-receive (list 32))
                   (list :name "portal traveling permit"
                         :id 5
                         :room 1
@@ -974,7 +903,7 @@
                         :combined nil
                         :inside-item (list :id 4 :name "lazy zombie")
                         :contains-item nil
-                        :invisable t
+                        :invisible t
                         :conversable nil)
                   (list :name "busy zombie"
                         :id 6
@@ -1139,7 +1068,7 @@
                         :combinable nil
                         :inside-item (list :id 15 :name "gnome")
                         :contains-item nil
-                        :invisable
+                        :invisible
                         :conversable nil)
                   (list :name "lizard man"
                         :id 17
@@ -1229,7 +1158,7 @@
                         :dead t
                         :description "With these, you can apply for a portal traveling permit"
                         :retrievable t
-                        :invisable t
+                        :invisible t
                         :interactible nil
                        ; :combinable (list 12)
                        ; :usable t
