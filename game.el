@@ -102,6 +102,7 @@
     (("unlock" "open") jg-unlock-command)
     (("lock" "close") jg-lock-command)
     (("bounce" "throw") jg-bounce-command)
+    ((("give" "the" "papers" "to" "the") ("give" "papers" "to")) jg-give-command)
     ((("time-change") ("use" "clock") ("change" "time") ("move" "hand") ("move" "clockhand")) jg-time-change-command)
     ((("good" "bye") "bye" "good-bye") jg-goodbye-command)))
 
@@ -352,7 +353,7 @@
           (t
            (set-attribute :things 32 :invisable nil)
            (jb-game-output
-              (format "You have unlocked the %s." thing-name))))))
+            (format "You have unlocked the %s." thing-name))))))
 
 (defun lock (player-id thing-id &optional unlock)
   (let* ((pocket (get-attribute :players player-id :pocket))
@@ -372,8 +373,8 @@
             ((not (member key-id pocket))
              :no-key)
             ((not (equal (get-attribute :players player-id :room)
-                     (get-attribute :things thing-id :room)))
-         :thing-not-in-room)
+                         (get-attribute :things thing-id :room)))
+             :thing-not-in-room)
             ((equal locked 2) :already-locked)
             (t (set-attribute :things thing-id :locked 2))))))
 
@@ -682,7 +683,47 @@
           ((equal time-change 2) :break-over)
           (t (set-attribute :things thing-id :time-change 2)))))
 
+(defun jg-give-command (words)
+  (let* ((player-id current-player-id)
+         (thing-id (name-to-id :things words))
+         (thing-name (get-attribute :things thing-id :name))
+         (result (give player-id thing-id t)
+                 (time-change player-id thing-id t))
+    (cond ((equal result :thing-not-in-room)
+           (jb-game-output (format "There is no %s in this room" thing-name)))
+          ((equal result :no-papers)
+           (jb-game-output (format "The lazy zombie sticks his nose up at you, for you do not have papers.  Without the proper paper work, the lazy zombie will not give you a portal traveling permit.  When you inquire about where to receive the proper paperwork, the lazy zombie says that there are some in the storage room, but he is far to busy to retrieve them right now.")))
+         
+          ((equal result :cannot-receive)
+           (jb-game-output
+            (format "The %s doesn't want that." thing-name))
+           (not ((equal result :break-over)
+                (jb-game-output
+                 (format "The lazy zombie is munching down on a brain sandwich.  With a mouth full of much, he bitterly grunts that he is on his break"))))
+          (t
+           (set-attribute :things 32 :invisable t)
+           (set-attribute :things 5 :invisable nil)
+           (jb-game-output
+            (format "You give the papers to the lazy zombie.  He mumbles to himself as as he scribbles down some information and types into his computer.  Then the lazy zombie sets a traveling permit down on the counter before you and wishes you a mediocre day."))))))))
 
+(defun give (player-id thing-id)
+  (let* ((pocket (get-attribute :players player-id :location))
+         (receive (get-attribute :things thing-id :receive))
+         (give (get-attribute :things thing-id :give))
+         (papers-id 32)
+         )
+    (cond 
+          ((null receive) :cannot-receive)
+          ((not (member papers-id pocket))
+           :no-papers)
+          ((not (equal (get-attribute :players player-id :room)
+                       (get-attribute :things thing-id :room)))
+           :thing-not-in-room)
+          ((equal reviece 2) :already-received)
+          (t (set-attribute :things thing-id :given 2)))))
+          
+          
+         
 
 ;; (defun jg-time-change-command (words)
 ;;   (let* ((player-id current-player-id)
@@ -765,7 +806,6 @@
                  
                  (list :name "Home"
                        :id 999
-                       :portal-locked t
                        :directions
                        ()
                        :descriptions
@@ -773,7 +813,7 @@
                         "You made it home!  You win the game"
                         "No description.")
                        :description-index 0
-                       :locked nil
+                       :locked t
                        :room-puzzle nil)
                  
                  (list :name "Service"
@@ -922,7 +962,8 @@
                         :inside-item nil
                         :contains-item (list :id 5 :name "portal traveling permit")
                         :conversable t
-                        :creature t)
+                        :creature t
+                        :receive 1)
                   (list :name "portal traveling permit"
                         :id 5
                         :room 1
@@ -969,7 +1010,7 @@
                         :combinable nil
                         :combined nil
                         :inside-item nil
-                        :time-change 2
+                        :time-change 1
                         :usable t
                         :use-type
                         (list "move" t
@@ -1199,7 +1240,8 @@
                        ; :inside-item t
                       
                         :contains-item t
-                        :conversable nil))
+                        :conversable nil
+                        :give 1))
 
          
          
