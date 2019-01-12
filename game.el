@@ -667,10 +667,10 @@
          (can-receive (get-attribute :things receive-id :can-receive))
          (receivable (member give-id can-receive)))
     (cond
-     ((not recievable) :cannot-receive)
+     ((not receivable) :cannot-receive)
      ((not (member give-id pocket)) :no-papers)
      ((not (equal (get-attribute :players player-id :room)
-                  (get-attribute :things thing-to-receive :room)))
+                  (get-attribute :things receive-id :room)))
       :thing-not-in-room)
      (t t))))
 
