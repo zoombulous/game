@@ -245,6 +245,10 @@
 ;;  (let* ((player-id current-player-id)
 
 (defun jg-move-command (words)
+  (logit "jg-move-command remaining words " words)
+  (loop while (member (car words) '("the" "a" "that"))
+        do (setq words (cdr words)))
+  (logit "words after cleanup " words)
   (let ((valid-directions (getf game-structure :valid-directions))
         (direction (intern-soft (format ":%s" (car words))))
         (player-id current-player-id))
@@ -309,6 +313,10 @@
               (format "You now have possession of the %s." thing-name))))))
 
 (defun jg-lock-command (words)
+  (logit "jg-lock-command remaining words " words)
+  (loop while (member (car words) '("the" "a" "that"))
+        do (setq words (cdr words)))
+  (logit "words after cleanup " words)
   (let* ((player-id current-player-id)
          (thing-id (name-to-id :things words))
          (thing-name (get-attribute :things thing-id :name))
@@ -333,6 +341,10 @@
               (format "You have locked the %s." thing-name))))))
 
 (defun jg-unlock-command (words)
+  (logit "jg-unlock-command remaining words " words)
+  (loop while (member (car words) '("the" "a" "that"))
+        do (setq words (cdr words)))
+  (logit "words after cleanup " words)
   (let* ((player-id current-player-id)
          (thing-id (name-to-id :things words))
          (thing-name (get-attribute :things thing-id :name))
@@ -356,7 +368,7 @@
             (format "You have unlocked the %s." thing-name))))))
 
 (defun lock (player-id thing-id &optional unlock)
-  (let* ((pocket (get-attribute :players player-id :pocket))
+    (let* ((pocket (get-attribute :players player-id :pocket))
          (locked (get-attribute :things thing-id :locked))
          (invisable (get-attribute :things thing-id :invisible))
          (key-id 20))
@@ -379,6 +391,10 @@
             (t (set-attribute :things thing-id :locked 2))))))
 
 (defun jg-drop-command (words)
+  (logit "jg-drop-command remaining words " words)
+  (loop while (member (car words) '("the" "a" "that"))
+        do (setq words (cdr words)))
+  (logit "words after cleanup " words)
   (when (equal (car words) "the") (setq words (cdr words)))
   (let* ((player-id current-player-id)
          (thing-id (name-to-id :things words))
@@ -461,7 +477,7 @@
              thing-id))))
 
 (defun drop (player-id thing-id)
-  (if (null thing-id)
+   (if (null thing-id)
       :unknown-thing
     (let ((pocket (get-attribute :players player-id :pocket)))
       (if (or (not (member thing-id pocket))
@@ -492,6 +508,10 @@
                new-room-id)))))
 
 (defun jg-conversation-command (words)
+  (logit "jg-conversation-command remaining words " words)
+  (loop while (member (car words) '("the" "a" "that"))
+        do (setq words (cdr words)))
+  (logit "words after cleanup " words)
   (when words
     (let* ((player-id current-player-id)
            (conversation-id
@@ -600,6 +620,10 @@
         (format ("I know this thing isn't sharp, but you shouldn't swing it around willy nilly." thing-name)))))))
 
 (defun jg-bounce-command (words)
+  (logit "jg-bounce-command remaining words " words)
+  (loop while (member (car words) '("the" "a" "that"))
+        do (setq words (cdr words)))
+  (logit "words after cleanup " words)
   (let* ((player-id current-player-id)
          (thing-id (name-to-id :things words))
          (thing-name (get-attribute :things thing-id :name))
@@ -610,6 +634,10 @@
               (format ("I know this %s isn't sharp, but you shouldn't swing it around willy nilly." thing-name)))))))
 
 (defun jg-time-change-command (words)
+  (logit "jg-time-change-command remaining words " words)
+  (loop while (member (car words) '("the" "a" "that"))
+        do (setq words (cdr words)))
+  (logit "words after cleanup " words)
   (let* ((player-id current-player-id)
          (thing-id (name-to-id :things words))
          (thing-name (get-attribute :things thing-id :name))
@@ -638,6 +666,10 @@
           (t (set-attribute :things thing-id :time-change 2)))))
 
 (defun jg-give-command (words)
+  (logit "jg-give-command remaining words " words)
+  (loop while (member (car words) '("the" "a" "that"))
+        do (setq words (cdr words)))
+  (logit "words after cleanup " words)
   (let* ((player-id current-player-id)
          (give-id (name-to-id :things words))
          (give-name (get-attribute :things give-id :name))
