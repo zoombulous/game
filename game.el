@@ -103,6 +103,7 @@
     (("lock" "close") jg-lock-command)
     (("bounce" "throw") jg-bounce-command)
     (("give" "hand over") jg-give-command)
+    (("ask" "query" "question" "tell me about") jg-ask-command)
     ((("time-change") ("use" "clock") ("change" "time") ("move" "hand") ("move" "clockhand")) jg-time-change-command)
     ((("good" "bye") "bye" "good-bye") jg-goodbye-command)))
 
@@ -141,7 +142,8 @@
   (jb-game-output "Good bye."))
 
 (defun jg-start-command (words)
-  (jb-game-output "Welcome to jb-game."))
+  (jb-game-output "Welcome to jb-game.
+I am different now"))
 
 (defun jb-game-output (&rest messages)
   (setq words nil)
@@ -506,6 +508,53 @@
                (loop for thing-id in pocket
                      do (set-attribute :things thing-id :room new-room-id))
                new-room-id)))))
+
+(defun jg-ask-command (words)
+  (let* ((player-id current-player-id)
+         (person-id (name-to-id :things words))
+         (person-name (get-attribute :things person-id :name))
+         (subject-id (name-to-id :things words))
+         (subject-name (get-attribute :things subject-id :name))
+         (result (ask player-id person-id subject-id)))
+    (cond ((equal result :not-a-person)
+           (jb-game-output
+            (format "Maybe you have been watching Brave Little Toaster too much.  You can't talk to inanimate objects.")))
+          ((equal result :not-askable-person)
+           (jb-game-output
+            (format "The %s doesn't want to talk to you" person-name)))
+          ((equal result :too-lazy-to-answer)
+           (jb-game-output
+            (format "The %s doesn't want to talk about that" person-name)))
+          ((equal result :break-not-over)
+           (jb-game-output
+            (format "The lazy zombie is munching on brains.  With his mouth full of mush, he complains that he is still on break.  There is a clock in the waiting room.")))
+          ((equal result :subject-not-in-room)
+           (jb-game-output
+            (format "The %s is not in this room.")))
+          (t
+           (jb-game-output
+            (format "The lazy zombie explains that paperwork is required to receive a portal traveling permit.  Unfortunately, the only paperwork left is in the storage room.  The lazy zombie goes on to say that he is too busy right now to retrieve it for you."))))))
+    
+(defun ask (player-id person-id subject-id)
+  (let* ((player (select-by-id player-id))
+         (person-to-ask (select-by-id :things person-id))
+         (subject-to-ask (select-by-id :things subject-id))
+          (person (get-attribute :things :can-ask))
+          (alive (get-attribute :things :creature))
+          (valid-subject (get-attribute :things :can-ask-about))
+         (can-ask-subject (member person-id valid-subject))
+         (time-change (get-attribute :things 8 :time-change))
+          )
+    (cond
+     ((not alive) :not-a-person)
+     ((not askable-person) :not-askable-person)
+     ((not valid-subject) :too-lazy-to-answer)
+     ((equal time-change 1) :break-not-over)
+     ((not (equal (get-attribute :players player-id :room)
+                  (get-attribute :things person-id :room)))
+      :subject-not-in-room)
+     (t t))))
+
 
 (defun jg-conversation-command (words)
   (logit "jg-conversation-command remaining words " words)
