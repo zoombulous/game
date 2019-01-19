@@ -536,15 +536,15 @@ I am different now"))
             (format "The lazy zombie explains that paperwork is required to receive a portal traveling permit.  Unfortunately, the only paperwork left is in the storage room.  The lazy zombie goes on to say that he is too busy right now to retrieve it for you."))))))
     
 (defun ask (player-id person-id subject-id)
-  (let* ((player (select-by-id player-id))
+  (message-box (format "subject-id=%s; person-id=%s" subject-id person-id))
+  (let* ((player (select-by-id :players player-id))
          (person-to-ask (select-by-id :things person-id))
          (subject-to-ask (select-by-id :things subject-id))
-          (person (get-attribute :things :can-ask))
-          (alive (get-attribute :things :creature))
-          (valid-subject (get-attribute :things :can-ask-about))
+         (askable-person (get-attribute :things person-id :can-ask))
+         (alive (get-attribute :things person-id :creature))
+         (valid-subject (get-attribute :things subject-id :can-ask-about))
          (can-ask-subject (member person-id valid-subject))
-         (time-change (get-attribute :things 8 :time-change))
-          )
+         (time-change (get-attribute :things 8 :time-change)))
     (cond
      ((not alive) :not-a-person)
      ((not askable-person) :not-askable-person)
@@ -965,6 +965,7 @@ I am different now"))
                         :room 1
                         :description
                         (list "The lazy zombie is standing behind the service desk eating a sandwhich." "The lazy zombie is standing behind the service desk.  He doesn't appear to be busy.  Maybe he can help you?")
+                        :can-ask t
                         :retrievable nil
                         :interactible nil
                         :combinable nil
@@ -1241,6 +1242,7 @@ I am different now"))
                         :retrievable t
                         :invisible t
                         :interactible nil
+                        :can-ask-about t
                        ; :combinable (list 12)
                        ; :usable t
                        ; :use-type t
