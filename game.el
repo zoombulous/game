@@ -1,3 +1,14 @@
+;; current issues
+
+;; there are a few things that started having problems when
+;; we made it possible to have changing descriptions.  This includes
+;;-moving in a direction that is not possible but is a valid direction
+;;-going down when it is unlocked
+;;-calling attributes for items not being in the same room as the player
+;;the other bug is dropping items.  It works, but you have to do it twice. The first time does wrong type arguement char-or-string-p, nil.  However, because dropping an item isn't important to the game as it stands, and it isn't mentioned anywhere in the game that you should drop an item, I don't think it is important to fix right now.
+
+
+
 (require 'cl)
 
 (setq jb-game-properties 
@@ -94,7 +105,7 @@
     (("reply" "talk" "respond") jg-conversation-command)
     ((("pick" "up") "pick" "grab" "take" "get") jg-pickup-command)
     ((("let" "go" "of") "drop" "discard" "dump") jg-drop-command)
-    ((("show" "pockets") "list" "enumerate") jg-list-command)
+    ((("show" "pockets") ("what" "do" "I" "have") ("what" "is" "in" "my" "pockets") ("what" "is" "in" "my" "pocket") "list" "enumerate") jg-list-command)
     ((("where" "am" "i") ("examine" "room") ("where" "am" "I") ("look") ("what's" "up") "describe" "hello" "hi") jg-describe-command)
     (("reset" "restart" "reboot") jg-reset-command)
     (("please" "kindly") jg-please-command)
@@ -185,8 +196,9 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
     (if (null pocket)
         (jb-game-output "You are destitue.")
       (jb-game-output
-       (format "You have possession of the following items
-:\n%s."
+       (format "You have possession of the following items:
+\n%s.
+"
                (mapconcat 'identity thing-names ", "))))))
 
 (defun jg-describe-command (words)
@@ -215,6 +227,7 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
            (mapconcat (lambda (x) (getf x :name))
                       things-in-room ", "))))
 
+;;
 (defun jg-describe-room (room-id)
   (let* ((player-id current-player-id)
          (player (select-by-id :players player-id))
@@ -261,29 +274,33 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
 ;;(defun jg-help-command (words)
 ;;  (let* ((player-id current-player-id)
 
-(defun relevant (words)
-  (loop with irrelevant = '("the" "a" "that" "to" "on" "about")
-        for word in words
-        when (not (member word irrelevant))
-        collect word))
+;;old relevant
 
-(defun jg-move-command (words)
-  (logit "jg-move-command remaining words " words)
-  (loop while (member (car words) '("the" "a" "that"))
-        do (setq words (cdr words)))
-  (logit "words after cleanup " words)
-  (let ((valid-directions (getf game-structure :valid-directions))
-        (direction (intern-soft (format ":%s" (car words))))
-        (player-id current-player-id))
-    (if (member direction valid-directions)
-        (let ((new-room-id (move player-id direction)))
-          (cond ((equal new-room-id :invalid-direction)
-                 (jb-game-output "There's nothing in that direction."))
-                ((equal new-room-id :room-is-locked)
-                 (jb-game-output "That room is locked."))
-                (t (jg-describe-room new-room-id))))
-      (jb-game-output (format "Unkown direction '%s'!"
-                              (car words))))))
+;;(defun relevant (words)
+;;  (loop with irrelevant = '("the" "a" "that" "to" "on" "about")
+;;        for word in words
+;;        when (not (member word irrelevant))
+;;        collect word))
+
+;;different move command
+
+;;(defun jg-move-command (words)
+;;  (logit "jg-move-command remaining words " words)
+;;  (loop while (member (car words) '("the" "a" "that"))
+;;        do (setq words (cdr words)))
+;;  (logit "words after cleanup " words)
+;;  (let ((valid-directions (getf game-structure :valid-directions))
+;;        (direction (intern-soft (format ":%s" (car words))))
+;;        (player-id current-player-id))
+;;    (if (member direction valid-directions)
+;;        (let ((new-room-id (move player-id direction)))
+;;          (cond ((equal new-room-id :invalid-direction)
+;;                 (jb-game-output "There's nothing in that direction."))
+;;               ((equal new-room-id :room-is-locked)
+;;                 (jb-game-output "That room is locked."))
+;;                (t (jg-describe-room new-room-id))))
+;;      (jb-game-output (format "Unkown direction '%s'!"
+;;                              (car words))))))
 
 ;;attempt to make portal locked condition for moving
 
@@ -1595,6 +1612,8 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
         when (not (member word irrelevant))
         collect word))
 
+;;has going down explaination
+
 (defun jg-move-command (words)
   (logit "jg-move-command remaining words " words)
   (loop while (member (car words) '("the" "a" "that"))
@@ -1608,7 +1627,7 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
           (cond ((equal new-room-id :invalid-direction)
                  (jb-game-output "There's nothing in that direction."))
                 ((equal new-room-id :room-is-locked)
-                 (jb-game-output "You go through the portal.  Because you do not have a portal traveling permit, you are sent back to the Department of Magical Vehicles and Transportation.  The busy zombie angrily bursts into the room and smacks you over the head.  He explains that you have to have a permit to use a portal.  He then instructs you to go go the service room and ask the lazy-zombie about the paperwork.  The busy zombie looks down at his watch and runs back out of the room."))
+                 (jb-game-output "You go through the portal.  Because you do not have a portal traveling permit, you are sent back to the Department of Magical Vehicles and Transportation.  The busy zombie angrily bursts into the room and smacks you over the head.  He explains that you have to have a permit to use a portal.  He then instructs you to go go the service room and ask the lazy-zombie about the paperwork.  The busy zombie runs back out of the room."))
                 (t (jg-describe-room new-room-id))))
       (jb-game-output (format "Unkown direction '%s'!"
                               (car words))))))
@@ -2093,6 +2112,7 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
           (t
            (set-attribute :things give-id :invisible t)
            (set-attribute :things 5 :invisible nil)
+           (set-attribute :rooms 0 :locked nil)
            (jb-game-output
             (format "You give the papers to the lazy-zombie.  He mumbles to himself as as he scribbles down some information and types into his computer.  Then the lazy-zombie sets a traveling permit down on the counter before you and wishes you a mediocre day."))))))
 
