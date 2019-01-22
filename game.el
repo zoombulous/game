@@ -3,7 +3,6 @@
 ;; there are a few things that started having problems when
 ;; we made it possible to have changing descriptions.  This includes
 ;;-moving in a direction that is not possible but is a valid direction
-;;-going down when it is unlocked
 ;;-calling attributes for items not being in the same room as the player
 ;;the other bug is dropping items.  It works, but you have to do it twice. The first time does wrong type arguement char-or-string-p, nil.  However, because dropping an item isn't important to the game as it stands, and it isn't mentioned anywhere in the game that you should drop an item, I don't think it is important to fix right now.
 
@@ -105,18 +104,18 @@
     (("reply" "talk" "respond") jg-conversation-command)
     ((("pick" "up") "pick" "grab" "take" "get") jg-pickup-command)
     ((("let" "go" "of") "drop" "discard" "dump") jg-drop-command)
-    ((("show" "pockets") ("what" "do" "I" "have") ("what" "is" "in" "my" "pockets") ("what" "is" "in" "my" "pocket") "list" "enumerate") jg-list-command)
+    ((("show" "pockets") ("what" "do" "I" "have") ("what" "is" "in" "my" "pockets") ("what" "is" "in" "my" "pocket") ("check" "pockets") ("check" "my" "pockets") ("check" "pocket") ("show" "my" "items") ("check" "my" "pocket") "list" "check" "enumerate" "inventory") jg-list-command)
     ((("where" "am" "i") ("examine" "room") ("where" "am" "I") ("look") ("what's" "up") "describe" "hello" "hi") jg-describe-command)
     (("reset" "restart" "reboot") jg-reset-command)
     (("please" "kindly") jg-please-command)
   ;;  (("use") jg-use-command)
     (("unlock" "open") jg-unlock-command)
     (("lock" "close") jg-lock-command)
-    (("bounce" "throw") jg-bounce-command)
-    (("give" "hand over") jg-give-command)
+  ;;  (("bounce" "throw") jg-bounce-command)
+    (("give" "hand over" "show") jg-give-command)
     (("help" "please help" "query" "instructions") jg-help-command)
-    (("ask" "query" "question" "tell me about") jg-ask-command)
-    ((("time-change") ("change" "the" "time") ("adjust" "the" "hand") ("adjust") ("move" "clockhand")) jg-time-change-command)
+    (("ask" "query" "question") jg-ask-command)
+    ((("time-change") ("change" "the" "time") ("adjust" "the" "hand") ("adjust") ("move" "clockhand") "rip" "set" "wind" "tap" "punch" "kick" ("fix") ("change" "time") ("change" "the" "time") ("change" "time" "on") ("change" "the" "time" "on" "the") ("watch")) jg-time-change-command)
     ((("good" "bye") "bye" "good-bye") jg-goodbye-command)))
 
 (defun match-words (match-list words)
@@ -147,9 +146,15 @@
 
 move
 pick up
-drop
 look
 show my items
+
+Talking to people will not work aside from asking about in world items.
+You cannot die in the game and going through the portal will never have lasting consequences.
+
+You may not look at items individually.  Look will always return the room description.
+
+Please only interact with people or objects when you are in the same room as them apart from asking questions about items.
 
 Enjoy the game and good luck getting home!"))
 
@@ -166,9 +171,15 @@ Enjoy the game and good luck getting home!"))
 (defun jg-goodbye-command (words)
   (jb-game-output "Good bye."))
 
+
 (defun jg-start-command (words)
   (jb-game-output "Welcome to The First Game.
-You have angered a wizard.  In his rage, he tossed you through a portal.  Because you do not have a portal traveling permit, you were sent by default to the the Department of Magical Vehicles and Transportation, or DMVT.  To get home, you must procure a portal traveling permit, or you will be trapped in the realm of bureaucracy for all of time.  You may type the word help at any time for a list of a few of the commands you may need to get started in the game.  You may start by looking at the room."))
+
+You have angered a wizard.  In his rage, he tossed you through a portal.  Because you do not have a portal traveling permit, you were sent by default to the the Department of Magical Vehicles and Transportation, or DMVT.  
+
+To get home, you must procure a portal traveling permit, or you will be trapped in the realm of bureaucracy for all of time.  
+
+Please type the word help for a list of a few of the commands you may need to get started in the game."))
 
 (defun jb-game-output (&rest messages)
   (setq words nil)
@@ -190,6 +201,9 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
 You have angered a wizard.  In his rage, he tossed you through a portal.  Because you do not have a portal traveling permit, you were sent by default to the the Department of Magical Vehicles and Transportation, or DMVT.  To get home, you must procure a portal traveling permit, or you will be trapped in the realm of bureaucracy for all of time.  You may type the word help at any time for a list of a few of the commands you may need to get started in the game.  You may start by looking at the room."))
 
 (defun jg-list-command (words)
+  (logit "jg-move-command remaining words " words)
+  (loop while (member (car words) '("the" "a" "that" "through" "to" "my" "pocket" "pockets"))
+        do (setq words (cdr words)))
   (let* ((player-id current-player-id)
          (pocket (get-attribute :players player-id :pocket))
          (thing-names (mapcar (lambda (x) (get-attribute :things x :name))
@@ -230,6 +244,9 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
 
 ;;
 (defun jg-describe-room (room-id)
+  (logit "jg-move-command remaining words " words)
+  (loop while (member (car words) '("the" "a" "that" "through" "to"))
+        do (setq words (cdr words)))
   (let* ((player-id current-player-id)
          (player (select-by-id :players player-id))
          (pocket (getf player :pocket))
@@ -244,10 +261,10 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
     (when things-in-room
       (setf description (add-things-in-room description things-in-room)))
     (loop for direction in directions
-          collect (format "There's a room %s %s."
+          collect (format "There is a %s %s."
                           (if (member direction '(:up :down))
-                              "if you go"
-                            "to the")
+                              "portal in the ground if you go"
+                            "door if you go")
                           (substring (symbol-name direction) 1))
           into directions
           finally
@@ -404,7 +421,7 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
           (t
            (set-attribute :things 32 :invisible nil)
            (jb-game-output
-            (format "You have unlocked the %s." thing-name))))))
+            (format "You have unlocked the %s.  Inside is paperwork.  You should pick this up.  If you give the paperwork to the lazy-zombie, he will give you a portal traveling permit." thing-name))))))
 
 (defun lock (player-id thing-id &optional unlock)
     (let* ((pocket (get-attribute :players player-id :pocket))
@@ -563,7 +580,7 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
             (format "The %s doesn't want to talk to you" person-name)))
           ((equal result :break-not-over)
            (jb-game-output
-            (format "The lazy-zombie is munching down on a brain sandwich.  With a mouth full of much, he bitterly grunts that he is on his break.  He snarkily remarks that you may watch the clock in the waiting room like everyone else.")))
+            (format "The lazy-zombie is munching down on a brain sandwich.  With a mouth full of mush, he bitterly grunts that he is on his break.  He snarkily remarks that you may watch the clock in the waiting room like everyone else.")))
           ((equal result :subject-not-in-room)
            (jb-game-output
             (format "The %s is not in this room.")))
@@ -572,7 +589,7 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
              (format "He doesn't want to talk about that.")))
           (t
            (jb-game-output
-            (format "The lazy-zombie explains that paperwork is required to recieve a portal traveling permit.  Unfortunately, the only paperwork left is in the storage room.  The lazy-zombie goes on to say that he is too busy right now to retrieve it for you."))))))
+            (format "The lazy-zombie explains that paperwork is required to recieve a portal traveling permit.  Unfortunately, the only paperwork left is in the file room.  The lazy-zombie goes on to say that he is too busy right now to retrieve it for you.  He then goes on to say if you retrieve the paperwork you should bring it to the service room and give it to him.  Then he will give you a portal traveling permit."))))))
     
 (defun ask (player-id person-id subject-id)
   (let* ((player (select-by-id :players player-id))
@@ -721,7 +738,7 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
 
 (defun jg-time-change-command (words)
   (logit "jg-time-change-command remaining words " words)
-  (loop while (member (car words) '("the" "a" "that"))
+  (loop while (member (car words) '("the" "a" "that" "off" "of" "the" "wall" "and" "jump" "up" "and" "down" "on" "it" "until" "it" "starts"))
         do (setq words (cdr words)))
   (logit "words after cleanup " words)
   (let* ((player-id current-player-id)
@@ -771,24 +788,26 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
             (format "The %s doesn't want that." receive-name)))
           ((equal result :break-not-over)
            (jb-game-output
-            (format "The lazy-zombie is munching down on a brain sandwich.  With a mouth full of much, he bitterly grunts that he is on his break.  He snarkily remarks that you may watch the clock in the waiting room like everyone else.")))
+            (format "The lazy-zombie is munching down on a brain sandwich.  With a mouth full of mush, he bitterly grunts that he is on his break.  He snarkily remarks that you may watch the clock in the waiting room like everyone else.")))
           (t
            (set-attribute :things give-id :invisible t)
            (set-attribute :things 5 :invisible nil)
            (set-attribute :rooms 1 :description-index 1)
-           (set-attribute :rooms 0 :locked nil)
+           (set-attribute :rooms 999 :locked nil)
            (jb-game-output
-            (format "You give the papers to the lazy-zombie.  He mumbles to himself as as he scribbles down some information and types into his computer.  Then the lazy-zombie sets a traveling permit down on the counter before you and wishes you a mediocre day."))))))
+            (format "You give the paperwork to the lazy-zombie.  He mumbles to himself as as he scribbles down some information and types into his computer.  Then the lazy-zombie sets a traveling permit down on the counter before you and wishes you a mediocre day."))))))
 
 (defun give (player-id give-id receive-id)
   (let* ((pocket (get-attribute :players player-id :pocket))
          (thing-to-receive (select-by-id :things receive-id))
          (thing-to-give (select-by-id :things give-id))
          (can-receive (get-attribute :things receive-id :can-receive))
+         (time-change (get-attribute :things 8 :time-change))
          (receivable (member give-id can-receive)))
     (cond
      ((not receivable) :cannot-receive)
      ((not (member give-id pocket)) :no-papers)
+     ((equal time-change 1) :break-not-over)
      ((not (equal (get-attribute :players player-id :room)
                   (get-attribute :things receive-id :room)))
       :thing-not-in-room)
@@ -849,7 +868,7 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
                         :down 999)
                        :descriptions
                        (list
-                        "You stand in a room that aches with boredom.  You would rather gnaw off your leg than stand another moment in this place.  It must be a government building."
+                        "You stand in a room that aches with boredom.  You would rather gnaw off your leg than stand another moment in this place.  It must be a government building.  There is a sign on the wall that instructs you to ask the lazy-zombie about paperwork in the service room, which is to your north.  It then goes on to explain the wonders of portal traveling when you have your very own portal traveling permit."
                         "No description")
                        :description-index 0
                        :locked nil
@@ -861,13 +880,15 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
                        ()
                        :descriptions
                        (list
-                        "You made it home!  You win the game"
+                        "You made it home!  You win the game
+
+"
                         "No description.")
                        :description-index 0
                        :locked t
                        :room-puzzle nil)
                  
-                 (list :name "Service"
+                 (list :name "Service Room"
                        :id 1
                        :directions
                        (list :south 0)
@@ -910,7 +931,7 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
                        (list :east 0)
                        :descriptions
                        (list 
-                        "Creatures are sitting on chairs.  There is a clock on the wall.  It looks like someone tampered with it.  The time is unchanging."
+                        "Creatures are sitting on chairs.  There is a broken clock on the wall.  There are signs that someone tampered with it.  The time is unchanging.  The fairy complains to the gnome that someone should fix the clock."
                         "Creatures are sitting in chairs.  It would seem that when you moved the hands on the clock, you ended the lazy-zombie's break.")
                        :description-index 0
                        :locked nil
@@ -951,55 +972,55 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
                    (list :id 1 :room 0 :pocket nil :conversation-id 1))
          
          :things (list
-                  (list :name "mirror"
-                        :id 1
-                        :owner nil
-                        :invisible t
-                        :room 0
-                        :description "There is a myserious figure inside."
-                        :retrievable t
-                        :interactible nil
-                        :combinable nil
-                        :combined nil
-                        :inside-item nil
-                        :contains-item nil
-                        :conversable t)
-                  (list :name "ball"
-                        :id 2
-                        :owner nil
-                        :room 0
-                        :description "This ball is round and sqeaky."
-                        :retrievable t
-                        :usable t
-                        :bounceable t
-                        :use-type
-                        (list "interact" t
-                              "bounce" t)
-                        :interact-return "You bounce the ball off the floor.  That was fun"
-                        :combinable nil
-                        :combined nil
-                        :inside-item nil
-                        :contains-item nil
-                        :conversable nil)
-                  (list :name "sword"
-                        :id 3
-                        :owner nil
-                        :room 0
-                        :description "This sword is rusty and dull."
-                        :retrievable t
-                        :jab-able t
-                        :usable t
-                        :use-type
-                        (list "interact" t
-                              "cut" t
-                              "swing" t
-                              "jab" t)
-                        :interact-return "I know this thing isn't sharp, but you shouldn't swing it around willy nilly."
-                        :combinable nil
-                        :combined nil
-                        :inside-item nil
-                        :contains-item nil
-                        :converable nil)
+                 ;; (list :name "mirror"
+                 ;;       :id 1
+                 ;;       :owner nil
+                 ;;       :invisible t
+                 ;;       :room 0
+                 ;;       :description "There is a myserious figure inside."
+                 ;;       :retrievable t
+                 ;;       :interactible nil
+                 ;;       :combinable nil
+                 ;;       :combined nil
+                 ;;       :inside-item nil
+                 ;;       :contains-item nil
+                 ;;       :conversable t)
+                 ;; (list :name "ball"
+                 ;;       :id 2
+                 ;;       :owner nil
+                 ;;       :room 0
+                 ;;       :description "This ball is round and sqeaky."
+                 ;;       :retrievable t
+                 ;;       :usable t
+                 ;;       :bounceable t
+                 ;;       :use-type
+                 ;;       (list "interact" t
+                 ;;             "bounce" t)
+                 ;;       :interact-return "You bounce the ball off the floor.  That was fun"
+                 ;;       :combinable nil
+                 ;;       :combined nil
+                 ;;       :inside-item nil
+                 ;;       :contains-item nil
+                 ;;       :conversable nil)
+                 ;; (list :name "sword"
+                 ;;       :id 3
+                 ;;       :owner nil
+                 ;;       :room 0
+                 ;;       :description "This sword is rusty and dull."
+                 ;;       :retrievable t
+                 ;;       :jab-able t
+                 ;;       :usable t
+                 ;;       :use-type
+                 ;;       (list "interact" t
+                 ;;             "cut" t
+                 ;;             "swing" t
+                 ;;             "jab" t)
+                 ;;       :interact-return "I know this thing isn't sharp, but you shouldn't swing it around willy nilly."
+                 ;;       :combinable nil
+                 ;;       :combined nil
+                 ;;       :inside-item nil
+                 ;;       :contains-item nil
+                 ;;       :converable nil)
                   (list :name "lazy-zombie"
                         :id 4
                         :owner nil
@@ -1107,20 +1128,20 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
                         :inside-item (list :id 11 :name "zombie janitor")
                         :contains-item nil
                         :conversable nil)
-                  (list :name "mop"
-                        :id 10
-                        :room 3
-                        :description "This mop is broken"
-                        :retrievable t
-                        :interactible nil
-                        :combinable (list 30)
-                        :combined nil
-                        :inside-item nil
-                        :usable t
-                        :use-type
-                        (list :fix t)
-                        :contains-item nil
-                        :conversable nil)
+         ;;         (list :name "mop"
+         ;;               :id 10
+         ;;               :room 3
+         ;;               :description "This mop is broken"
+         ;;               :retrievable t
+         ;;               :interactible nil
+         ;;               :combinable (list 30)
+         ;;               :combined nil
+         ;;               :inside-item nil
+         ;;               :usable t
+         ;;               :use-type
+         ;;              (list :fix t)
+         ;;               :contains-item nil
+         ;;               :conversable nil)
                   (list :name "zombie janitor"
                         :id 11
                         :room 3
@@ -1134,41 +1155,41 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
                         (list :id 9 :name "small grey key")
                         :conversable nil
                         :creature)
-                  (list :name "flashlight"
-                        :id 12
-                        :room 3
-                        :description "This could be handy if we had some batteries"
-                        :retrievable t
-                        :interactible "You switch on the flashlight, nothing happens."
-                        :combinable (list 31)
-                        :combined nil
-                        :inside-item nil
-                        :batteries-replaceable 1
-                        :usable t
-                        :use-type
-                        (list "turn on" t
-                              "turn off" t
-                              "shine" t)
-                        :charged 1
-                        :on 1
-                        :contains-item nil
-                        :conversable nil)
-                  (list :name "spray bottle"
-                        :id 13
-                        :room 3
-                        :description "It is an empty spray bottle"
-                        :retrievable t
-                        :interactible "You use the empty spray bottle.  Nothing interesting happens.  You probably should put something inside it first"
-                        :combinable (list 30)
-                        :combined nil
-                        :inside-item nil
-                        :refill-able 1
-                        :usable t
-                        :use-type
-                        (list "spray" t
-                              "squirt" t)
-                        :contains-item nil
-                        :conversable nil)
+         ;;         (list :name "flashlight"
+         ;;               :id 12
+         ;;               :room 3
+         ;;               :description "This could be handy if we had some batteries"
+         ;;               :retrievable t
+         ;;               :interactible "You switch on the flashlight, nothing happens."
+         ;;               :combinable (list 31)
+         ;;               :combined nil
+         ;;               :inside-item nil
+         ;;               :batteries-replaceable 1
+         ;;               :usable t
+         ;;               :use-type
+         ;;               (list "turn on" t
+         ;;                     "turn off" t
+         ;;                     "shine" t)
+         ;;               :charged 1
+         ;;               :on 1
+         ;;               :contains-item nil
+         ;;               :conversable nil)
+         ;;         (list :name "spray bottle"
+         ;;               :id 13
+         ;;               :room 3
+         ;;               :description "It is an empty spray bottle"
+         ;;               :retrievable t
+         ;;               :interactible "You use the empty spray bottle.  Nothing interesting happens.  You probably should put something inside it first"
+         ;;               :combinable (list 30)
+         ;;               :combined nil
+         ;;               :inside-item nil
+         ;;               :refill-able 1
+         ;;               :usable t
+         ;;               :use-type
+         ;;               (list "spray" t
+         ;;                     "squirt" t)
+         ;;               :contains-item nil
+         ;;               :conversable nil)
                   (list :name "gnome"
                         :id 15
                         :room 4
@@ -1215,66 +1236,66 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
                         :contains-item nil
                         :converable t
                         :creature t)
-                  (list :name "ticket machine"
-                        :id 19
-                        :room 4
-                        :description "The ticket machine prints tickets with service numbers.  When your number is called, you may go to the service room and be helped"
-                        :retrievable nil
-                        :interactible
-                        (list "You press a button and a ticket pops out.  It reads 9-Z.  The tickets everyone else has don't go past D.  Discouraged, you throw the ticket away.  Maybe you can trick someone else into giving you their ticket." "Last time you used this machine, it made you sad.  Maybe you can trick someone else into giving you their ticket.")
-                        :combinable nil
-                        :inside-item nil
-                        :contains-item nil
-                        :usable t
-                        :use-type
-                        (list "operate" t)
-                        :conversable nil
-                        :heavy t)
-                  (list :name "green portal jar"
-                        :id 21
-                        :room 3
-                        :description "If you use this in the lobby, you will make a portal to a new area.  You will be one step closer to getting home."
-                        :retrievable t
-                        :interactible nil
-                        :combinable nil
-                        :inside-item nil
-                        :use-type
-                        (list "recharge" t
-                              "open a portal" t
-                              "open a portal with" t)
-                        :contains-item nil
-                        :conversable nil)
-                  (list :name "water"
-                        :id 30
-                        :room 3
-                        :description "A bucket of water."
-                        :retrievable t
-                        :interactible nil 
-                        :combinable (list 13 10)
-                        :inside-item nil
-                        :usable t
-                        :use-type
-                        (list "pour" t :passive :13
-                              "dump" t :passive :13
-                              "fill" t :passive :13
-                              "refill" t :passive :13)
-                        :contains-item nil
-                        :conversable nil)
-                  (list :name "batteries"
-                        :id 31
-                        :room 3
-                        :description "Batteries."
-                        :retrievable t
-                        :interactible nil
-                        :combinable (list 12)
-                        :usable
-                        :use-type
-                        (list "insert" t :active :12
-                              "replace" t :active :12
-                              "put" t :active :12) 
-                        :inside-item nil
-                        :contains-item nil
-                        :conversable nil)
+         ;;         (list :name "ticket machine"
+         ;;               :id 19
+         ;;               :room 4
+         ;;               :description "The ticket machine prints tickets with service numbers.  When your number is called, you may go to the service room and be helped"
+         ;;               :retrievable nil
+         ;;               :interactible
+         ;;               (list "You press a button and a ticket pops out.  It reads 9-Z.  The tickets everyone else has don't go past D.  Discouraged, you throw the ticket away.  Maybe you can trick someone else into giving you their ticket." "Last time you used this machine, it made you sad.  Maybe you can trick someone else into giving you their ticket.")
+         ;;               :combinable nil
+         ;;               :inside-item nil
+         ;;               :contains-item nil
+         ;;               :usable t
+         ;;               :use-type
+         ;;               (list "operate" t)
+         ;;               :conversable nil
+         ;;               :heavy t)
+         ;;         (list :name "green portal jar"
+         ;;               :id 21
+         ;;               :room 3
+         ;;               :description "If you use this in the lobby, you will make a portal to a new area.  You will be one step closer to getting home."
+         ;;               :retrievable t
+         ;;               :interactible nil
+         ;;               :combinable nil
+         ;;               :inside-item nil
+         ;;               :use-type
+         ;;               (list "recharge" t
+         ;;                     "open a portal" t
+         ;;                     "open a portal with" t)
+         ;;               :contains-item nil
+         ;;               :conversable nil)
+         ;;         (list :name "water"
+         ;;               :id 30
+         ;;               :room 3
+         ;;               :description "A bucket of water."
+         ;;               :retrievable t
+         ;;               :interactible nil 
+         ;;               :combinable (list 13 10)
+         ;;               :inside-item nil
+         ;;               :usable t
+         ;;               :use-type
+         ;;               (list "pour" t :passive :13
+         ;;                     "dump" t :passive :13
+         ;;                     "fill" t :passive :13
+         ;;                     "refill" t :passive :13)
+         ;;               :contains-item nil
+         ;;               :conversable nil)
+         ;;         (list :name "batteries"
+         ;;               :id 31
+         ;;               :room 3
+         ;;               :description "Batteries."
+         ;;               :retrievable t
+         ;;               :interactible nil
+         ;;               :combinable (list 12)
+         ;;               :usable
+         ;;               :use-type
+         ;;               (list "insert" t :active :12
+         ;;                     "replace" t :active :12
+         ;;                     "put" t :active :12) 
+         ;;               :inside-item nil
+         ;;               :contains-item nil
+         ;;               :conversable nil)
                   (list :name "paperwork"
                         :id 32
                         :room 2
