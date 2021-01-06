@@ -598,7 +598,6 @@ You have angered a wizard.  In his rage, he tossed you through a portal.  Becaus
          (person (get-attribute :things person-id :creature))
          (askable-person (get-attribute :things person-id :conversable))
          (valid-subject (get-attribute :things subject-id :valid-subject))
-         (can-ask-subject (member person-id valid-subject))
          (time-change (get-attribute :things 8 :time-change)))
     (cond
      ((not person) :not-a-person)
